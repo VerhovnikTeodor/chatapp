@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: chatapp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: chatapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - chatapp_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d chatapp"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: .
+    container_name: chatapp-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    environment:
+      PORT: 4000
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/chatapp?schema=public
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run dev"
+
+
+volumes:
+  chatapp_postgres_data:
