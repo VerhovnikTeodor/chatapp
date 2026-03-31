@@ -25,15 +25,16 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - "4000:4000"
+      - "8000:8000"
     environment:
-      PORT: 4000
-      NODE_ENV: development
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/chatapp?schema=public
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/chatapp
+      SECRET_KEY: "your-secret-key"
+      ALGORITHM: "HS256"
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
     volumes:
       - .:/app
-      - /app/node_modules
-    command: sh -c "npx prisma generate && npx prisma migrate deploy && npm run dev"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
 
 
 volumes:
