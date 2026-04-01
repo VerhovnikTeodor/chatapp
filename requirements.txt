@@ -10,3 +10,6 @@ alembic
 greenlet
 pydantic[email]
 bcrypt
+python-socketio
+websockets
+redis
