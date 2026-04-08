@@ -4,11 +4,11 @@ on:
   push:
     paths:
       - "backend/**"
-      - ".github/workflows/backend-tests.yml"
+      - ".github/workflows/ci_cd_workflow.yml"
   pull_request:
     paths:
       - "backend/**"
-      - ".github/workflows/backend-tests.yml"
+      - ".github/workflows/ci_cd_workflow.yml"
 
 jobs:
   test:
@@ -18,11 +18,9 @@ jobs:
         working-directory: backend
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
