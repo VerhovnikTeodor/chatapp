@@ -1,8 +1,9 @@
 import socketio
 import logging
+from app.db.session import SessionLocal
+from app.schemas.message import MessageCreate
+from app.services.message_service import create_message
 
-
-sio = socketio.AsyncServer(async_mode="asgi", cors_allowed_origins="*")
 
 
 logging.basicConfig(level=logging.INFO)
@@ -26,8 +27,29 @@ async def connect(sid, environ):
 async def disconnect(sid):
     log.info(f"Povezava prekinjena: {sid}")
 
-@sio.on('chat_message')
-async def handle_chat_message(sid, data):
-    log.info(f"Prejeto sporočilo od {sid}: {data}")
-    await sio.emit('chat_message', data)
-    return {"ok": True}
+@sio.on("chat_message")
+async def receive_chat_message(sid, data):
+    db = SessionLocal()
+    try:
+        payload = MessageCreate(
+            chatId=data["chatId"],
+            userId=data["userId"],
+            content=data.get("content"),
+        )
+        message = create_message(db, payload)
+
+        event_payload = {
+            "id": message.id,
+            "chatId": message.chatId,
+            "userId": message.userId,
+            "content": message.content,
+            "createdAt": str(message.createdAt),
+        }
+
+        await sio.emit("chat_message", event_payload, room=message.chatId)
+        return {"ok": True, "messageId": message.id}
+    except Exception:
+        log.exception("chat_message handler failed")
+        return {"ok": False}
+    finally:
+        db.close()

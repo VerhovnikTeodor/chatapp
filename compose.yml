@@ -35,6 +35,41 @@ services:
     depends_on:
       - redis
 
+  
+  minio:
+    image: minio/minio:latest
+    container_name: chatapp-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  
+      - "9001:9001"   
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - chatapp_minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: chatapp-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER} ${MINIO_ROOT_PASSWORD};
+      mc mb -p local/${MINIO_BUCKET:-chatapp} || true;
+      mc anonymous set download local/${MINIO_BUCKET:-chatapp} || true;
+      "
+
+
   backend:
     build: .
     container_name: chatapp-backend
@@ -44,6 +79,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     environment:
@@ -51,6 +90,11 @@ services:
       SECRET_KEY: ${SECRET_KEY}
       ALGORITHM: ${ALGORITHM}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+      S3_BUCKET: ${MINIO_BUCKET:-chatapp}
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
     volumes:
       - .:/app
     command: ["uvicorn", "app.main:sio_app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
@@ -59,3 +103,4 @@ services:
 
 volumes:
   chatapp_postgres_data:
+  chatapp_minio_data:
