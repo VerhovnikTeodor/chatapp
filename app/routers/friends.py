@@ -7,9 +7,11 @@ from app.services.friends_service import (
     get_friendships,
     get_friendship_by_id,
     get_user_friendships,
+    get_user_friend_requests,
     create_friendship,
     update_friendship,
     delete_friendship,
+    respond_to_friend_request,
 )
 
 router = APIRouter()
@@ -51,6 +53,15 @@ def list_user_friendships(user_id: str, db: Session = Depends(get_db)):
         raise _error(500, "USER_FRIENDS_FETCH_FAILED", "Napaka pri pridobivanju uporabnikovih prijateljstev")
 
 
+@router.get("/user/{user_id}/requests", response_model=list[FriendSchema])
+def list_user_friend_requests(user_id: str, db: Session = Depends(get_db)):
+    try:
+        return get_user_friend_requests(db, user_id)
+    except Exception:
+        logger.exception("List user friend requests failed")
+        raise _error(500, "USER_REQUESTS_FETCH_FAILED", "Napaka pri pridobivanju prošenj za prijateljstvo")
+
+
 @router.post("/", response_model=FriendSchema)
 def post_friendship(payload: FriendCreate, db: Session = Depends(get_db)):
     try:
@@ -78,6 +89,21 @@ def put_friendship(friendship_id: str, payload: FriendUpdate, db: Session = Depe
 
     if friendship is None:
         raise _error(404, "FRIENDSHIP_NOT_FOUND", "Friendship not found ali konflikt")
+    return friendship
+
+
+@router.post("/{friendship_id}/respond", response_model=FriendSchema)
+def respond_friendship(friendship_id: str, payload: FriendUpdate, db: Session = Depends(get_db)):
+    try:
+        friendship = respond_to_friend_request(db, friendship_id, payload.status)
+    except ValueError as exc:
+        raise _error(400, "FRIENDSHIP_INVALID_STATUS", str(exc))
+    except Exception:
+        logger.exception("Respond friendship failed")
+        raise _error(500, "FRIENDSHIP_RESPOND_FAILED", "Napaka pri odgovoru na prijateljstvo")
+
+    if friendship is None:
+        raise _error(404, "FRIENDSHIP_NOT_FOUND", "Friendship not found")
     return friendship
 
 

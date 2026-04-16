@@ -14,3 +14,4 @@ python-socketio
 websockets
 redis
 pytest
+PyJWT==2.9.0
